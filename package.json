@@ -1,0 +1,18 @@
+{
+  "name": "masl-scores",
+  "author": "",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "MASL Scores",
+    "uuid": "bb350827-407d-47c8-96c8-9453a7340044",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["basalt", "chalk", "diorite", "emery", "flint"],
+    "watchapp": { "watchface": false },
+    "messageKeys": ["Games", "Status", "Refresh"],
+    "resources": { "media": [] }
+  }
+}
