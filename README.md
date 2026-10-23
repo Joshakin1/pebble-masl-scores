@@ -9,11 +9,40 @@ it, and sends a compact list of games to the watch.
 
 ## Features
 
-- Scrollable list of up to 30 games: matchup, score when available, date, and
-  status
-- Live games are marked `LIVE`
-- Auto-refresh every minute while a game is live, every 10 minutes otherwise
+- Scrollable list of up to 30 games: matchup (away @ home), date, and status
 - Press **Select** to refresh manually
+- Auto-refresh every 10 minutes
+- Planned, not yet verified: scores, a `LIVE` marker on in-progress games, and
+  refreshing every minute while a game is live (see [Status](#status))
+
+## Status
+
+Early and untested on hardware. The ticker parser has only been tested in
+Node, against a preseason response in which every game was upcoming.
+
+Known issues and open questions:
+
+- **Not yet built or run on a device.** The first `pebble build` and
+  emulator/watch test are still to do. If the SDK doesn't recognize `emery` or
+  `flint`, remove them from `targetPlatforms`. Aplite is left out on purpose
+  because of memory limits.
+- **The live request hasn't been tested from a phone.** The MASL site's own
+  request sends `Origin`/`Referer` headers that PebbleKit JS can't set. If the
+  phone gets `Error 401`/`403` even with a fresh ticket, the likely fix is a
+  small proxy that adds the headers, parses the HTML, and returns clean JSON.
+  A proxy would also centralize rotating the ticket.
+- **Score and live/final parsing are guesses.** No live or final games have
+  appeared in the feed yet. Once the season starts (first game Nov 27, 2026),
+  capture a real response and fix the parsing in `parseTicker`.
+- **Away/home order is inferred.** The first team listed is treated as away
+  and the second as home, based on ticket links.
+
+Ideas:
+
+- 3-letter team abbreviations, so long matchups don't truncate on 144px
+  screens
+- A section header for each date
+- An option to show only a favorite team
 
 ## Supported platforms
 
@@ -56,5 +85,6 @@ DevTools, find the `score-ticker` request, copy the `ticket` value from its
 
 ## Disclaimer
 
-Unofficial fan project. Not affiliated with or endorsed by the MASL or
-DigitalShift.
+Unofficial fan project for personal use. Not affiliated with or endorsed by
+the MASL or DigitalShift. The score feed isn't an official public API, so check
+the MASL site's terms before distributing the app.
