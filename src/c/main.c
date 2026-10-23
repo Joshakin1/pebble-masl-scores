@@ -219,7 +219,8 @@ static void window_load(Window *window) {
     .select_click = select_click,
   });
 #if defined(PBL_COLOR)
-  menu_layer_set_highlight_colors(s_menu_layer, GColorDarkGreen, GColorWhite);
+  // Light enough that dark logos (e.g. Ambush) stay visible when selected.
+  menu_layer_set_highlight_colors(s_menu_layer, GColorPictonBlue, GColorBlack);
 #endif
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
   layer_add_child(root, menu_layer_get_layer(s_menu_layer));

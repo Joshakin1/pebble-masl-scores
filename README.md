@@ -41,9 +41,6 @@ Known issues and open questions:
   and the second as home, based on ticket links.
 - **Logos cover the 9 teams in the feed as of Oct 2026.** A team that isn't in
   `s_logos` just shows its name. See [Adding a team logo](#adding-a-team-logo).
-- **Some logos are hard to see on the selected row.** Dark logos such as the
-  Blast wordmark blend into the dark green highlight.
-
 Ideas:
 
 - A section header for each date
