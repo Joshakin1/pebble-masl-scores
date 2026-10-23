@@ -21,15 +21,12 @@ it, and sends a compact list of games to the watch.
 
 ## Project layout
 
-| File           | Purpose                                                  |
-| -------------- | -------------------------------------------------------- |
-| `main.c`       | Watch app: menu UI and AppMessage handling               |
-| `index.js`     | Phone side: fetches and parses the ticker, sends games   |
-| `package.json` | Pebble app metadata (UUID, platforms, message keys)      |
-| `wscript`      | Pebble SDK build script                                  |
-
-`wscript` builds from the standard Pebble layout, so the sources need to live
-at `src/c/main.c` and `src/pkjs/index.js` for `pebble build` to pick them up.
+| File                | Purpose                                                |
+| ------------------- | ------------------------------------------------------ |
+| `src/c/main.c`      | Watch app: menu UI and AppMessage handling             |
+| `src/pkjs/index.js` | Phone side: fetches and parses the ticker, sends games |
+| `package.json`      | Pebble app metadata (UUID, platforms, message keys)    |
+| `wscript`           | Pebble SDK build script                                |
 
 ## Building
 
@@ -42,20 +39,20 @@ pebble install --emulator basalt
 
 ## Testing the parser
 
-`index.js` exports `parseTicker` when run outside the watch environment, so
-you can feed it ticker HTML from Node:
+`src/pkjs/index.js` exports `parseTicker` when run outside the watch
+environment, so you can feed it ticker HTML from Node:
 
 ```js
-const { parseTicker } = require('./index.js');
+const { parseTicker } = require('./src/pkjs/index.js');
 console.log(parseTicker(html));
 ```
 
 ## Troubleshooting
 
 If the app shows `Error 401` or `Error 403`, the public site ticket embedded
-in `index.js` has probably rotated. Open maslsoccer.com with DevTools, find the
-`score-ticker` request, copy the `ticket` value from its `Authorization`
-header, and update `TICKET` in `index.js`.
+in `src/pkjs/index.js` has probably rotated. Open maslsoccer.com with
+DevTools, find the `score-ticker` request, copy the `ticket` value from its
+`Authorization` header, and update `TICKET` in `src/pkjs/index.js`.
 
 ## Disclaimer
 
