@@ -67,15 +67,13 @@ function parseTicker(html) {
     var isFinal = /final/i.test(status);
     var live = !scheduled && !isFinal && status.length > 0;
 
-    var title;
-    if (away.score !== null && home.score !== null) {
-      title = away.name + ' ' + away.score + ' @ ' + home.name + ' ' + home.score;
-    } else {
-      title = away.name + ' @ ' + home.name;
-    }
     var subtitle = (live ? 'LIVE ' : '') + (date ? date + ' ' : '') + status;
 
-    games.push({ title: clean(title), subtitle: clean(subtitle), live: live });
+    games.push({
+      away: clean(away.name), awayScore: away.score || '',
+      home: clean(home.name), homeScore: home.score || '',
+      subtitle: clean(subtitle), live: live
+    });
   }
   return games;
 }
@@ -123,7 +121,10 @@ function fetchScores() {
       scheduleRefresh(false);
       return;
     }
-    var payload = games.map(function (g) { return g.title + '|' + g.subtitle; }).join('\n');
+    // One game per line: away|awayScore|home|homeScore|subtitle
+    var payload = games.map(function (g) {
+      return [g.away, g.awayScore, g.home, g.homeScore, g.subtitle].join('|');
+    }).join('\n');
     Pebble.sendAppMessage({ Games: payload }, null, function () {
       console.log('Failed to send games');
     });

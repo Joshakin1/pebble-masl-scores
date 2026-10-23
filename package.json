@@ -2,7 +2,9 @@
   "name": "masl-scores",
   "author": "",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -10,9 +12,114 @@
     "uuid": "bb350827-407d-47c8-96c8-9453a7340044",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "targetPlatforms": ["basalt", "chalk", "diorite", "emery", "flint"],
-    "watchapp": { "watchface": false },
-    "messageKeys": ["Games", "Status", "Refresh"],
-    "resources": { "media": [] }
+    "targetPlatforms": [
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery",
+      "flint"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "Games",
+      "Status",
+      "Refresh"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "LOGO_AMBUSH",
+          "file": "images/logo_ambush.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_BLAST",
+          "file": "images/logo_blast.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_COMETS",
+          "file": "images/logo_comets.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_SOCKERS",
+          "file": "images/logo_sockers.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_SPIRITS",
+          "file": "images/logo_spirits.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_STARS",
+          "file": "images/logo_stars.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_STRYKERS",
+          "file": "images/logo_strykers.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_UCFC",
+          "file": "images/logo_ucfc.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        },
+        {
+          "type": "bitmap",
+          "name": "LOGO_WAVE",
+          "file": "images/logo_wave.png",
+          "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery"
+          ]
+        }
+      ]
+    }
   }
 }
