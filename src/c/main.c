@@ -20,6 +20,10 @@
 #define LOGO_SPACE PBL_IF_COLOR_ELSE(LOGO_W + 4, 0)
 #define MARGIN PBL_IF_ROUND_ELSE(20, 4)
 
+// Selected-row color, set from the phone's settings page (0xRRGGBB).
+#define PERSIST_KEY_HIGHLIGHT 1
+#define DEFAULT_HIGHLIGHT 0x55AAFF  // GColorPictonBlue
+
 typedef struct {
   char away[TEAM_LEN];
   char away_score[SCORE_LEN];
@@ -86,6 +90,24 @@ static GBitmap *find_logo(const char *team) {
   return NULL;
 }
 
+// ---------- Highlight color ----------
+
+static void apply_highlight(int32_t hex) {
+#if defined(PBL_COLOR)
+  GColor bg = GColorFromHEX(hex);
+  // Black text on light colors, white on dark (each channel is 0-3).
+  int brightness = 299 * bg.r + 587 * bg.g + 114 * bg.b;
+  GColor fg = (brightness > 1500) ? GColorBlack : GColorWhite;
+  menu_layer_set_highlight_colors(s_menu_layer, bg, fg);
+  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
+#endif
+}
+
+static int32_t load_highlight(void) {
+  return persist_exists(PERSIST_KEY_HIGHLIGHT)
+      ? persist_read_int(PERSIST_KEY_HIGHLIGHT) : DEFAULT_HIGHLIGHT;
+}
+
 // ---------- Messaging ----------
 
 static void request_refresh(void) {
@@ -145,6 +167,11 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *status = dict_find(iter, MESSAGE_KEY_Status);
   if (status) {
     snprintf(s_status, sizeof(s_status), "%s", status->value->cstring);
+  }
+  Tuple *highlight = dict_find(iter, MESSAGE_KEY_HighlightColor);
+  if (highlight) {
+    persist_write_int(PERSIST_KEY_HIGHLIGHT, highlight->value->int32);
+    apply_highlight(highlight->value->int32);
   }
   menu_layer_reload_data(s_menu_layer);
 }
@@ -218,10 +245,7 @@ static void window_load(Window *window) {
     .draw_row = draw_row,
     .select_click = select_click,
   });
-#if defined(PBL_COLOR)
-  // Light enough that dark logos (e.g. Ambush) stay visible when selected.
-  menu_layer_set_highlight_colors(s_menu_layer, GColorPictonBlue, GColorBlack);
-#endif
+  apply_highlight(load_highlight());
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
   layer_add_child(root, menu_layer_get_layer(s_menu_layer));
 }

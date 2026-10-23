@@ -1,6 +1,8 @@
 // MASL Scores - phone-side component (PebbleKit JS)
 // Fetches the MASL score ticker from DigitalShift, parses the HTML partial,
-// and sends a compact list of games to the watch.
+// and sends a compact list of games to the watch. Also runs the settings page.
+
+var TEAMS = require('./teams');
 
 var TICKER_URL = 'https://web.api.digitalshift.ca/partials/score-ticker';
 // Public site token embedded in maslsoccer.com. If the app starts showing
@@ -17,7 +19,26 @@ var MONTHS = {
   November: 'Nov', December: 'Dec'
 };
 
+// localStorage key for the team filter: a JSON array of team names.
+var FILTER_KEY = 'teamFilter';
+
 var refreshTimer = null;
+
+function loadTeamFilter() {
+  try {
+    return JSON.parse(localStorage.getItem(FILTER_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Keep games involving any of the given teams. An empty filter keeps all.
+function filterGames(games, teams) {
+  if (!teams.length) return games;
+  return games.filter(function (g) {
+    return teams.indexOf(g.away) !== -1 || teams.indexOf(g.home) !== -1;
+  });
+}
 
 function decodeEntities(s) {
   return s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
@@ -121,6 +142,12 @@ function fetchScores() {
       scheduleRefresh(false);
       return;
     }
+    games = filterGames(games, loadTeamFilter());
+    if (games.length === 0) {
+      sendStatus('No games for your teams');
+      scheduleRefresh(false);
+      return;
+    }
     // One game per line: away|awayScore|home|homeScore|subtitle
     var payload = games.map(function (g) {
       return [g.away, g.awayScore, g.home, g.homeScore, g.subtitle].join('|');
@@ -136,13 +163,38 @@ function fetchScores() {
 }
 
 if (typeof Pebble !== 'undefined') {
+  var Clay = require('pebble-clay');
+  // Events are handled here so the team filter can stay on the phone; only
+  // the highlight color goes to the watch.
+  var clay = new Clay(require('./config'), null, { autoHandleEvents: false });
+
   Pebble.addEventListener('ready', fetchScores);
   Pebble.addEventListener('appmessage', function (e) {
     if (e.payload && e.payload.Refresh) fetchScores();
+  });
+
+  Pebble.addEventListener('showConfiguration', function () {
+    Pebble.openURL(clay.generateUrl());
+  });
+
+  Pebble.addEventListener('webviewclosed', function (e) {
+    if (!e || !e.response) return;
+    var settings = clay.getSettings(e.response, false);
+
+    var checked = (settings.FilterTeams && settings.FilterTeams.value) || [];
+    var teams = TEAMS.filter(function (t, i) { return checked[i]; });
+    localStorage.setItem(FILTER_KEY, JSON.stringify(teams));
+
+    if (settings.HighlightColor) {
+      Pebble.sendAppMessage({ HighlightColor: settings.HighlightColor.value }, null, function () {
+        console.log('Failed to send highlight color');
+      });
+    }
+    fetchScores();
   });
 }
 
 // Exported only so the parser can be tested outside the watch environment.
 if (typeof module !== 'undefined' && typeof Pebble === 'undefined') {
-  module.exports = { parseTicker: parseTicker };
+  module.exports = { parseTicker: parseTicker, filterGames: filterGames };
 }

@@ -6,7 +6,9 @@
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
   "pebble": {
     "displayName": "MASL Scores",
     "uuid": "bb350827-407d-47c8-96c8-9453a7340044",
@@ -25,7 +27,9 @@
     "messageKeys": [
       "Games",
       "Status",
-      "Refresh"
+      "Refresh",
+      "HighlightColor",
+      "FilterTeams[9]"
     ],
     "resources": {
       "media": [
@@ -120,6 +124,9 @@
           ]
         }
       ]
-    }
+    },
+    "capabilities": [
+      "configurable"
+    ]
   }
 }

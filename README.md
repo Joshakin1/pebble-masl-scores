@@ -15,6 +15,11 @@ it, and sends a compact list of games to the watch.
   black-and-white watches)
 - Press **Select** to refresh manually
 - Auto-refresh every 10 minutes
+- Settings page in the Pebble phone app (gear icon next to the app):
+  - **Selected row color** (color watches only). The text switches between
+    black and white automatically to stay readable.
+  - **Team filter:** only show games involving the teams you check. Leave every
+    team unchecked to show all games.
 - Planned, not yet verified: scores, a `LIVE` marker on in-progress games, and
   refreshing every minute while a game is live (see [Status](#status))
 
@@ -56,6 +61,8 @@ Ideas:
 | ------------------------ | ------------------------------------------------------ |
 | `src/c/main.c`           | Watch app: menu UI, logo lookup, AppMessage handling   |
 | `src/pkjs/index.js`      | Phone side: fetches and parses the ticker, sends games |
+| `src/pkjs/config.js`     | Settings page layout ([Clay](https://github.com/pebble/clay)) |
+| `src/pkjs/teams.js`      | Team names offered in the settings team filter         |
 | `resources/images/`      | Team logos (24×20, Pebble 64-color)                    |
 | `tools/convert_logos.py` | Converts downloaded logos into Pebble resources        |
 | `package.json`           | Pebble app metadata (UUID, platforms, message keys)    |
@@ -63,6 +70,8 @@ Ideas:
 
 The phone sends the watch one line per game:
 `away|awayScore|home|homeScore|subtitle`. Scores are empty until a game starts.
+The team filter is applied on the phone before sending and saved in the phone's
+`localStorage`. The highlight color is sent to the watch and saved there.
 
 ## Building
 
@@ -72,6 +81,11 @@ With the Pebble SDK installed:
 pebble build
 pebble install --emulator basalt
 ```
+
+The settings page needs the `pebble-clay` package, listed under
+`dependencies` in `package.json`. The SDK installs it during the build. In
+CloudPebble, it should appear under **Dependencies**; if it doesn't, add
+`pebble-clay` with version `^1.0.4` there.
 
 ## Testing the parser
 
@@ -99,6 +113,9 @@ console.log(parseTicker(html));
    `package.json`, limited to the color platforms like the others.
 4. Add the team to `s_logos` in `src/c/main.c`, using the exact name the
    ticker shows.
+5. Add the same name to `src/pkjs/teams.js` so it appears in the team filter,
+   and update the count in the `FilterTeams[9]` message key in `package.json`
+   to match the number of teams.
 
 ## Troubleshooting
 
