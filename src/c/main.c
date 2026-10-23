@@ -10,6 +10,8 @@
 
 // Each row: away team line, home team line, then date/status.
 #define ROW_HEIGHT 62
+// Height of the single "MASL Scores / status" row shown before games arrive.
+#define EMPTY_ROW_HEIGHT 44
 #define LINE_HEIGHT 22
 #define SCORE_W 30
 #define LOGO_W 24
@@ -158,7 +160,7 @@ static uint16_t get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
 }
 
 static int16_t get_cell_height(MenuLayer *menu, MenuIndex *index, void *context) {
-  return s_game_count > 0 ? ROW_HEIGHT : MENU_CELL_BASIC_CELL_HEIGHT;
+  return s_game_count > 0 ? ROW_HEIGHT : EMPTY_ROW_HEIGHT;
 }
 
 // One team line: [logo] Name ........ score
