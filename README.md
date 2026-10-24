@@ -61,7 +61,7 @@ Ideas:
 | ------------------------ | ------------------------------------------------------ |
 | `src/c/main.c`           | Watch app: menu UI, logo lookup, AppMessage handling   |
 | `src/pkjs/index.js`      | Phone side: fetches and parses the ticker, sends games |
-| `src/pkjs/config.js`     | Settings page layout ([Clay](https://github.com/pebble/clay)) |
+| `src/pkjs/config.js`     | Settings page layout ([Clay](https://github.com/pebble-dev/clay)) |
 | `src/pkjs/teams.js`      | Team names offered in the settings team filter         |
 | `resources/images/`      | Team logos (24×20, Pebble 64-color)                    |
 | `tools/convert_logos.py` | Converts downloaded logos into Pebble resources        |
@@ -82,10 +82,12 @@ pebble build
 pebble install --emulator basalt
 ```
 
-The settings page needs the `pebble-clay` package, listed under
+The settings page needs the `@rebble/clay` package, listed under
 `dependencies` in `package.json`. The SDK installs it during the build. In
 CloudPebble, it should appear under **Dependencies**; if it doesn't, add
-`pebble-clay` with version `^1.0.4` there.
+`@rebble/clay` with version `^1.1.0` there. Use this maintained fork of Clay,
+not the original `pebble-clay`, which doesn't support `flint` and fails the
+build.
 
 ## Testing the parser
 

@@ -163,7 +163,7 @@ function fetchScores() {
 }
 
 if (typeof Pebble !== 'undefined') {
-  var Clay = require('pebble-clay');
+  var Clay = require('@rebble/clay');
   // Events are handled here so the team filter can stay on the phone; only
   // the highlight color goes to the watch.
   var clay = new Clay(require('./config'), null, { autoHandleEvents: false });

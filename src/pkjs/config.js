@@ -1,4 +1,4 @@
-// Settings page, built by Clay (https://github.com/pebble/clay).
+// Settings page, built by Clay (https://github.com/pebble-dev/clay).
 
 var TEAMS = require('./teams');
 
