@@ -1,6 +1,6 @@
 // MASL Scores - watch app
-// Shows a scrollable list of MASL games. Press Select on a game to refresh,
-// or on the "Standings" row at the top to open the division standings.
+// Shows a scrollable list of MASL games and the division standings. Select
+// switches between the two screens; a long press of Select refreshes.
 
 #include <pebble.h>
 
@@ -10,11 +10,6 @@
 #define SCORE_LEN 4
 #define STAT_LEN 5
 #define SUBTITLE_LEN 40
-
-// Game list sections: a "Standings" link row, then the games.
-#define SECTION_LINK 0
-#define SECTION_GAMES 1
-#define LINK_ROW_HEIGHT 30
 
 // Each game row: away team line, home team line, then date/status.
 #define ROW_HEIGHT 62
@@ -324,7 +319,12 @@ static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *inde
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 }
 
+// Select goes back to the schedule; a long press reloads the standings.
 static void standings_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
+  window_stack_pop(true);
+}
+
+static void standings_select_long_click(MenuLayer *menu, MenuIndex *index, void *context) {
   request_standings();
   vibes_short_pulse();
 }
@@ -339,6 +339,7 @@ static void standings_window_load(Window *window) {
     .draw_header = standings_draw_header,
     .draw_row = standings_draw_row,
     .select_click = standings_select_click,
+    .select_long_click = standings_select_long_click,
   });
   style_menu(s_standings_menu);
   menu_layer_set_click_config_onto_window(s_standings_menu, window);
@@ -353,17 +354,11 @@ static void standings_window_unload(Window *window) {
 
 // ---------- Game list ----------
 
-static uint16_t get_num_sections(MenuLayer *menu, void *context) {
-  return 2;
-}
-
 static uint16_t get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
-  if (section == SECTION_LINK) return 1;
   return s_game_count > 0 ? s_game_count : 1;
 }
 
 static int16_t get_cell_height(MenuLayer *menu, MenuIndex *index, void *context) {
-  if (index->section == SECTION_LINK) return LINK_ROW_HEIGHT;
   return s_game_count > 0 ? ROW_HEIGHT : EMPTY_ROW_HEIGHT;
 }
 
@@ -380,21 +375,14 @@ static void draw_team(GContext *ctx, int x, int y, int w, const char *team, cons
 }
 
 static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
-  GRect bounds = layer_get_bounds(cell);
-  int x = MARGIN;
-  int w = bounds.size.w - 2 * MARGIN;
-
-  if (index->section == SECTION_LINK) {
-    graphics_draw_text(ctx, "Standings", s_team_font,
-                       GRect(x, (LINK_ROW_HEIGHT - LINE_HEIGHT) / 2 - 3, w, LINE_HEIGHT),
-                       GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-    return;
-  }
   if (s_game_count == 0) {
     menu_cell_basic_draw(ctx, cell, "MASL Scores", s_status, NULL);
     return;
   }
   Game *g = &s_games[index->row];
+  GRect bounds = layer_get_bounds(cell);
+  int x = MARGIN;
+  int w = bounds.size.w - 2 * MARGIN;
   draw_team(ctx, x, 0, w, g->away, g->away_score);
   draw_team(ctx, x, LINE_HEIGHT, w, g->home, g->home_score);
   graphics_draw_text(ctx, g->subtitle, s_status_font,
@@ -402,11 +390,12 @@ static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *c
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 }
 
+// Select opens the standings; a long press refreshes the schedule.
 static void select_click(MenuLayer *menu, MenuIndex *index, void *context) {
-  if (index->section == SECTION_LINK) {
-    window_stack_push(s_standings_window, true);
-    return;
-  }
+  window_stack_push(s_standings_window, true);
+}
+
+static void select_long_click(MenuLayer *menu, MenuIndex *index, void *context) {
   request_refresh();
   vibes_short_pulse();
 }
@@ -424,17 +413,14 @@ static void window_load(Window *window) {
 
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
-    .get_num_sections = get_num_sections,
     .get_num_rows = get_num_rows,
     .get_cell_height = get_cell_height,
     .draw_row = draw_row,
     .select_click = select_click,
+    .select_long_click = select_long_click,
   });
   set_highlight(load_highlight());
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
-  // Start on the first game, with the Standings row visible just above it.
-  menu_layer_set_selected_index(s_menu_layer, (MenuIndex) { SECTION_GAMES, 0 },
-                                MenuRowAlignNone, false);
   layer_add_child(root, menu_layer_get_layer(s_menu_layer));
 }
 

@@ -13,12 +13,13 @@ DigitalShift), parses them, and sends compact versions to the watch.
   home team, then the date and status.
 - Team logos next to each team name on color watches (names only on
   black-and-white watches)
-- Press **Select** on a game to refresh manually
-- Auto-refresh every 10 minutes
-- **Standings** screen: select the "Standings" row at the top of the game
-  list (press Up from the first game). It shows rank, logo, team, W-L-OT and
-  points for the MASL division. It loads when opened; press **Select** there
-  to reload.
+- **Standings** screen with rank, logo, team, W-L-OT and points for the MASL
+  division. It loads each time it opens.
+- Controls:
+  - **Select** switches between the schedule and the standings.
+  - **Long-press Select** refreshes the current screen.
+  - **Back** from the standings also returns to the schedule.
+- Auto-refresh of the schedule every 10 minutes
 - Settings page in the Pebble phone app (gear icon next to the app):
   - **Selected row color** (color watches only). The text switches between
     black and white automatically to stay readable.
