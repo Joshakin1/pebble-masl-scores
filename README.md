@@ -14,8 +14,11 @@ DigitalShift), parses them, and sends compact versions to the watch.
 - Team logos next to each team name on color watches (names only on
   black-and-white watches)
 - **Standings** screen for the MASL division. Each team shows rank, logo, name
-  and points, with W-L-OT, goal differential (GD) and current streak (Strk)
-  underneath. The header is a key for those numbers. It loads each time it
+  and points, with its record and the tiebreakers underneath, in tiebreak
+  order: W-L-OT, regulation wins (RW), goal differential (GD), goals for (GF),
+  goals against (GA). Head-to-head isn't shown. Columns that don't fit are
+  dropped from the end, so 144px and round watches stop at GF; `emery` shows
+  all of them. The header is a key for the numbers. It loads each time it
   opens.
 - Controls:
   - **Select** switches between the schedule and the standings.
@@ -74,7 +77,7 @@ Ideas:
 The phone sends the watch one line per game:
 `away|awayScore|home|homeScore|subtitle`. Scores are empty until a game starts.
 Standings are sent the same way, one line per team:
-`rank|team|w|l|ot|pts|diff|streak`.
+`rank|team|w|l|ot|pts|rw|diff|gf|ga`.
 The team filter is applied on the phone before sending and saved in the phone's
 `localStorage`. The highlight color is sent to the watch and saved there.
 

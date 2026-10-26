@@ -14,11 +14,10 @@
 // Each game row: away team line, home team line, then date/status.
 #define ROW_HEIGHT 62
 // Each standings row: rank, logo, team and points, then stat columns
-// (W-L-OT, goal differential, streak) underneath, keyed by the header.
+// underneath, keyed by the header (points label on top, stat labels below).
 #define STANDINGS_ROW_HEIGHT 36
-#define REC_W 42
-#define GD_W 22
-#define STRK_W 26
+#define STANDINGS_HEADER_HEIGHT 30
+#define NUM_STAT_COLUMNS 5
 // Height of a single title/status row shown before data arrives.
 #define EMPTY_ROW_HEIGHT 44
 #define LINE_HEIGHT 22
@@ -50,9 +49,26 @@ typedef struct {
   char losses[STAT_LEN];
   char ot_losses[STAT_LEN];
   char points[STAT_LEN];
+  char reg_wins[STAT_LEN];
   char diff[STAT_LEN];
-  char streak[STAT_LEN];
+  char goals_for[STAT_LEN];
+  char goals_against[STAT_LEN];
 } Standing;
+
+typedef struct {
+  const char *label;
+  int width;
+} StatColumn;
+
+// Record, then the tiebreakers after points in order (head-to-head is
+// skipped). Columns that don't fit the screen width are dropped from the end.
+static const StatColumn s_stat_columns[NUM_STAT_COLUMNS] = {
+  { "W-L-OT", 42 },
+  { "RW", 20 },
+  { "GD", 24 },
+  { "GF", 24 },
+  { "GA", 24 },
+};
 
 #if defined(PBL_COLOR)
 typedef struct {
@@ -215,7 +231,7 @@ static void parse_games(const char *payload) {
   }
 }
 
-// Payload format, one team per line: "rank|team|w|l|ot|pts|diff|streak"
+// Payload format, one team per line: "rank|team|w|l|ot|pts|rw|diff|gf|ga"
 static void parse_standings(const char *payload) {
   s_standing_count = 0;
   const char *line = payload;
@@ -231,8 +247,10 @@ static void parse_standings(const char *payload) {
     p = next_field(p, line_end, s->losses, STAT_LEN);
     p = next_field(p, line_end, s->ot_losses, STAT_LEN);
     p = next_field(p, line_end, s->points, STAT_LEN);
+    p = next_field(p, line_end, s->reg_wins, STAT_LEN);
     p = next_field(p, line_end, s->diff, STAT_LEN);
-    next_field(p, line_end, s->streak, STAT_LEN);
+    p = next_field(p, line_end, s->goals_for, STAT_LEN);
+    next_field(p, line_end, s->goals_against, STAT_LEN);
     s_standing_count++;
 
     line = (*line_end) ? line_end + 1 : line_end;
@@ -283,29 +301,37 @@ static int16_t standings_cell_height(MenuLayer *menu, MenuIndex *index, void *co
 }
 
 static int16_t standings_header_height(MenuLayer *menu, uint16_t section, void *context) {
-  return MENU_CELL_BASIC_HEADER_HEIGHT;
+  return STANDINGS_HEADER_HEIGHT;
 }
 
-// The stat columns under each team. The header draws its labels with the
-// same function so the key lines up with the numbers.
-static void draw_stat_columns(GContext *ctx, GFont font, int x, int y, int h,
-                              const char *record, const char *diff, const char *streak) {
-  graphics_draw_text(ctx, record, font, GRect(x, y, REC_W, h),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, diff, font, GRect(x + REC_W, y, GD_W, h),
-                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
-  graphics_draw_text(ctx, streak, font, GRect(x + REC_W + GD_W, y, STRK_W, h),
-                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
+// The stat columns under each team, within width w. The header draws its
+// labels with the same function so the key lines up with the numbers.
+static void draw_stat_columns(GContext *ctx, GFont font, int x, int y, int w, int h,
+                              const char *values[NUM_STAT_COLUMNS]) {
+  int col_x = x;
+  for (int i = 0; i < NUM_STAT_COLUMNS; i++) {
+    int col_w = s_stat_columns[i].width;
+    if (col_x + col_w > x + w) break;
+    // The record reads left to right; the single numbers line up on the right.
+    graphics_draw_text(ctx, values[i], font, GRect(col_x, y, col_w, h),
+                       GTextOverflowModeTrailingEllipsis,
+                       i == 0 ? GTextAlignmentLeft : GTextAlignmentRight, NULL);
+    col_x += col_w;
+  }
 }
 
 static void standings_draw_header(GContext *ctx, const Layer *cell, uint16_t section, void *context) {
   GRect bounds = layer_get_bounds(cell);
   int x = MARGIN;
   int w = bounds.size.w - 2 * MARGIN;
-  draw_stat_columns(ctx, s_header_font, x + RANK_W + 4, -2, bounds.size.h, "W-L-OT", "GD", "Strk");
-  graphics_draw_text(ctx, "Pts", s_header_font,
-                     GRect(x + w - PTS_W, -2, PTS_W, bounds.size.h),
+  int stats_x = x + RANK_W + 4;
+  // Top line keys the points on each row's first line; bottom line keys the
+  // stat columns on each row's second line.
+  graphics_draw_text(ctx, "Pts", s_header_font, GRect(x + w - PTS_W, -2, PTS_W, 16),
                      GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  const char *labels[NUM_STAT_COLUMNS];
+  for (int i = 0; i < NUM_STAT_COLUMNS; i++) labels[i] = s_stat_columns[i].label;
+  draw_stat_columns(ctx, s_header_font, stats_x, 12, w - (stats_x - x), 16, labels);
 }
 
 static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
@@ -331,9 +357,13 @@ static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *inde
 
   char record[3 * STAT_LEN + 2];
   snprintf(record, sizeof(record), "%s-%s-%s", s->wins, s->losses, s->ot_losses);
-  // Starts under the logo (not after it) so all three columns fit.
-  draw_stat_columns(ctx, s_status_font, name_x, LINE_HEIGHT - 3,
-                    STANDINGS_ROW_HEIGHT - LINE_HEIGHT + 3, record, s->diff, s->streak);
+  const char *values[NUM_STAT_COLUMNS] = {
+    record, s->reg_wins, s->diff, s->goals_for, s->goals_against,
+  };
+  // Starts under the logo (not after it) and uses the full width, so more
+  // columns fit.
+  draw_stat_columns(ctx, s_status_font, name_x, LINE_HEIGHT - 3, w - (name_x - x),
+                    STANDINGS_ROW_HEIGHT - LINE_HEIGHT + 3, values);
 }
 
 // Select goes back to the schedule; a long press reloads the standings.
