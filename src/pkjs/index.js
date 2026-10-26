@@ -110,9 +110,9 @@ function parseStandings(html) {
   var table = (html.split('<table')[1] || '').split('</table>')[0];
   var headers = (table.match(/<th[^>]*>[\s\S]*?<\/th>/g) || []).map(stripTags);
   var col = function (name) { return headers.indexOf(name); };
-  var rankCol = col('Rk'), teamCol = col('Team'), wCol = col('W'), lCol = col('L'),
-      otCol = col('OT'), ptsCol = col('Pts'), rwCol = col('RW'), diffCol = col('Diff'),
-      gfCol = col('GF'), gaCol = col('GA');
+  var rankCol = col('Rk'), teamCol = col('Team'), gpCol = col('GP'), wCol = col('W'),
+      lCol = col('L'), otCol = col('OT'), ptsCol = col('Pts'), rwCol = col('RW'),
+      diffCol = col('Diff');
   if (teamCol === -1 || ptsCol === -1) return [];
 
   var body = table.split('<tbody')[1] || '';
@@ -129,9 +129,9 @@ function parseStandings(html) {
     rows.push({
       rank: rankCol === -1 ? String(rows.length + 1) : text(rankCol),
       team: clean(stripTags(shortName ? shortName[1] : cells[teamCol])),
-      w: text(wCol), l: text(lCol), ot: text(otCol), pts: text(ptsCol),
-      // Tiebreakers after points, in order (head-to-head is skipped).
-      rw: text(rwCol), diff: text(diffCol), gf: text(gfCol), ga: text(gaCol)
+      gp: text(gpCol), w: text(wCol), l: text(lCol), ot: text(otCol), pts: text(ptsCol),
+      // The main tiebreakers after points (head-to-head is skipped).
+      rw: text(rwCol), diff: text(diffCol)
     });
   });
   return rows;
@@ -239,9 +239,9 @@ function fetchStandings() {
       sendStandingsStatus('No standings listed');
       return;
     }
-    // One team per line: rank|team|w|l|ot|pts|rw|diff|gf|ga
+    // One team per line: rank|team|gp|w|l|ot|pts|rw|diff
     var payload = rows.map(function (r) {
-      return [r.rank, r.team, r.w, r.l, r.ot, r.pts, r.rw, r.diff, r.gf, r.ga].join('|');
+      return [r.rank, r.team, r.gp, r.w, r.l, r.ot, r.pts, r.rw, r.diff].join('|');
     }).join('\n');
     Pebble.sendAppMessage({ Standings: payload }, null, function () {
       console.log('Failed to send standings');
