@@ -14,9 +14,8 @@
 // Each game row: away team line, home team line, then date/status.
 #define ROW_HEIGHT 62
 // Each standings row: rank, logo, team and points, then stat columns
-// underneath, keyed by the header (points label on top, stat labels below).
+// underneath, keyed by the header.
 #define STANDINGS_ROW_HEIGHT 36
-#define STANDINGS_HEADER_HEIGHT 30
 #define NUM_STAT_COLUMNS 4
 // Height of a single title/status row shown before data arrives.
 #define EMPTY_ROW_HEIGHT 44
@@ -300,7 +299,7 @@ static int16_t standings_cell_height(MenuLayer *menu, MenuIndex *index, void *co
 }
 
 static int16_t standings_header_height(MenuLayer *menu, uint16_t section, void *context) {
-  return STANDINGS_HEADER_HEIGHT;
+  return MENU_CELL_BASIC_HEADER_HEIGHT;
 }
 
 // The stat columns under each team, within width w. The header draws its
@@ -322,13 +321,11 @@ static void standings_draw_header(GContext *ctx, const Layer *cell, uint16_t sec
   int x = MARGIN;
   int w = bounds.size.w - 2 * MARGIN;
   int stats_x = x + RANK_W + 4;
-  // Top line keys the points on each row's first line; bottom line keys the
-  // stat columns on each row's second line.
-  graphics_draw_text(ctx, "Pts", s_header_font, GRect(x + w - PTS_W, -2, PTS_W, 16),
-                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  // Keys the stat columns on each row's second line. Points (right side of the
+  // first line) aren't labeled.
   const char *labels[NUM_STAT_COLUMNS];
   for (int i = 0; i < NUM_STAT_COLUMNS; i++) labels[i] = s_stat_columns[i].label;
-  draw_stat_columns(ctx, s_header_font, stats_x, 12, w - (stats_x - x), 16, labels);
+  draw_stat_columns(ctx, s_header_font, stats_x, -2, w - (stats_x - x), bounds.size.h, labels);
 }
 
 static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
