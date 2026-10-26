@@ -1,11 +1,11 @@
 # MASL Scores
 
-A Pebble watch app that shows Major Arena Soccer League (MASL) games and scores
-in a scrollable list.
+A Pebble watch app that shows Major Arena Soccer League (MASL) games, scores
+and division standings.
 
-The phone-side PebbleKit JS component pulls the score ticker used by
-[maslsoccer.com](https://www.maslsoccer.com) (served by DigitalShift), parses
-it, and sends a compact list of games to the watch.
+The phone-side PebbleKit JS component pulls the score ticker and standings
+table used by [maslsoccer.com](https://www.maslsoccer.com) (served by
+DigitalShift), parses them, and sends compact versions to the watch.
 
 ## Features
 
@@ -13,8 +13,12 @@ it, and sends a compact list of games to the watch.
   home team, then the date and status.
 - Team logos next to each team name on color watches (names only on
   black-and-white watches)
-- Press **Select** to refresh manually
+- Press **Select** on a game to refresh manually
 - Auto-refresh every 10 minutes
+- **Standings** screen: select the "Standings" row at the top of the game
+  list (press Up from the first game). It shows rank, logo, team, W-L-OT and
+  points for the MASL division. It loads when opened; press **Select** there
+  to reload.
 - Settings page in the Pebble phone app (gear icon next to the app):
   - **Selected row color** (color watches only). The text switches between
     black and white automatically to stay readable.
@@ -25,20 +29,15 @@ it, and sends a compact list of games to the watch.
 
 ## Status
 
-Early and untested on hardware. The ticker parser has only been tested in
-Node, against a preseason response in which every game was upcoming.
+Builds for all five platforms and runs on a watch (confirmed Oct 26, 2026),
+including the live request from the phone. All data so far is preseason:
+every game is upcoming and every standings stat is 0.
 
 Known issues and open questions:
 
-- **Not yet built or run on a device.** The first `pebble build` and
-  emulator/watch test are still to do. If the SDK doesn't recognize `emery` or
-  `flint`, remove them from `targetPlatforms`. Aplite is left out on purpose
-  because of memory limits.
-- **The live request hasn't been tested from a phone.** On Oct 23, 2026 the
-  feed returned 200 from a desktop without the `Origin`/`Referer` headers the
-  MASL site sends, so PebbleKit JS shouldn't need them. If the phone still gets
-  `Error 401`/`403` with a fresh ticket, the fallback is a small proxy that adds
-  the headers, parses the HTML, and returns clean JSON.
+- **The standings screen hasn't run on a device yet**, and the division ID
+  (`50066`) is hard-coded in `STANDINGS_URL`. If MASL changes divisions for a
+  new season, take the new ID from the standings page URL on maslsoccer.com.
 - **Score and live/final parsing are guesses.** No live or final games have
   appeared in the feed yet. Once the season starts (first game Nov 27, 2026),
   capture a real response and fix the parsing in `parseTicker`.
@@ -46,6 +45,7 @@ Known issues and open questions:
   and the second as home, based on ticket links.
 - **Logos cover the 9 teams in the feed as of Oct 2026.** A team that isn't in
   `s_logos` just shows its name. See [Adding a team logo](#adding-a-team-logo).
+
 Ideas:
 
 - A section header for each date
@@ -60,7 +60,7 @@ Ideas:
 | File                     | Purpose                                                |
 | ------------------------ | ------------------------------------------------------ |
 | `src/c/main.c`           | Watch app: menu UI, logo lookup, AppMessage handling   |
-| `src/pkjs/index.js`      | Phone side: fetches and parses the ticker, sends games |
+| `src/pkjs/index.js`      | Phone side: fetches and parses the ticker and standings |
 | `src/pkjs/config.js`     | Settings page layout ([Clay](https://github.com/pebble-dev/clay)) |
 | `src/pkjs/teams.js`      | Team names offered in the settings team filter         |
 | `resources/images/`      | Team logos (24×20, Pebble 64-color)                    |
@@ -70,6 +70,7 @@ Ideas:
 
 The phone sends the watch one line per game:
 `away|awayScore|home|homeScore|subtitle`. Scores are empty until a game starts.
+Standings are sent the same way, one line per team: `rank|team|w|l|ot|pts`.
 The team filter is applied on the phone before sending and saved in the phone's
 `localStorage`. The highlight color is sent to the watch and saved there.
 

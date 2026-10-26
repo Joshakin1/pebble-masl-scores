@@ -29,7 +29,10 @@
       "Status",
       "Refresh",
       "HighlightColor",
-      "FilterTeams[9]"
+      "FilterTeams[9]",
+      "GetStandings",
+      "Standings",
+      "StandingsStatus"
     ],
     "resources": {
       "media": [

@@ -1,19 +1,31 @@
 // MASL Scores - watch app
-// Shows a scrollable list of MASL games. Press Select to refresh.
+// Shows a scrollable list of MASL games. Press Select on a game to refresh,
+// or on the "Standings" row at the top to open the division standings.
 
 #include <pebble.h>
 
 #define MAX_GAMES 30
+#define MAX_STANDINGS 16
 #define TEAM_LEN 20
 #define SCORE_LEN 4
+#define STAT_LEN 5
 #define SUBTITLE_LEN 40
 
-// Each row: away team line, home team line, then date/status.
+// Game list sections: a "Standings" link row, then the games.
+#define SECTION_LINK 0
+#define SECTION_GAMES 1
+#define LINK_ROW_HEIGHT 30
+
+// Each game row: away team line, home team line, then date/status.
 #define ROW_HEIGHT 62
-// Height of the single "MASL Scores / status" row shown before games arrive.
+// Each standings row: rank, logo, team and points, then W-L-OT underneath.
+#define STANDINGS_ROW_HEIGHT 36
+// Height of a single title/status row shown before data arrives.
 #define EMPTY_ROW_HEIGHT 44
 #define LINE_HEIGHT 22
 #define SCORE_W 30
+#define RANK_W 16
+#define PTS_W 26
 #define LOGO_W 24
 #define LOGO_H 20
 // Logos are color only; at this size they don't survive black and white.
@@ -31,6 +43,15 @@ typedef struct {
   char home_score[SCORE_LEN];
   char subtitle[SUBTITLE_LEN];
 } Game;
+
+typedef struct {
+  char rank[STAT_LEN];
+  char team[TEAM_LEN];
+  char wins[STAT_LEN];
+  char losses[STAT_LEN];
+  char ot_losses[STAT_LEN];
+  char points[STAT_LEN];
+} Standing;
 
 #if defined(PBL_COLOR)
 typedef struct {
@@ -51,15 +72,24 @@ static TeamLogo s_logos[] = {
   { "Wave", RESOURCE_ID_LOGO_WAVE, NULL },
 };
 #define NUM_LOGOS ARRAY_LENGTH(s_logos)
+
+static GColor s_highlight_bg;
+static GColor s_highlight_fg;
 #endif
 
 static Window *s_window;
 static MenuLayer *s_menu_layer;
+static Window *s_standings_window;
+static MenuLayer *s_standings_menu;  // NULL while the standings window is closed
 static GFont s_team_font;
 static GFont s_status_font;
+static GFont s_header_font;
 static Game s_games[MAX_GAMES];
 static int s_game_count = 0;
 static char s_status[48] = "Loading...";
+static Standing s_standings[MAX_STANDINGS];
+static int s_standing_count = 0;
+static char s_standings_status[48] = "Loading...";
 
 // ---------- Logos ----------
 
@@ -90,16 +120,32 @@ static GBitmap *find_logo(const char *team) {
   return NULL;
 }
 
+static void draw_logo(GContext *ctx, const char *team, int x, int y) {
+  GBitmap *logo = find_logo(team);
+  if (logo) {
+    graphics_context_set_compositing_mode(ctx, GCompOpSet);
+    graphics_draw_bitmap_in_rect(ctx, logo, GRect(x, y, LOGO_W, LOGO_H));
+  }
+}
+
 // ---------- Highlight color ----------
 
-static void apply_highlight(int32_t hex) {
+static void style_menu(MenuLayer *menu) {
 #if defined(PBL_COLOR)
-  GColor bg = GColorFromHEX(hex);
+  if (!menu) return;
+  menu_layer_set_highlight_colors(menu, s_highlight_bg, s_highlight_fg);
+  layer_mark_dirty(menu_layer_get_layer(menu));
+#endif
+}
+
+static void set_highlight(int32_t hex) {
+#if defined(PBL_COLOR)
+  s_highlight_bg = GColorFromHEX(hex);
   // Black text on light colors, white on dark (each channel is 0-3).
-  int brightness = 299 * bg.r + 587 * bg.g + 114 * bg.b;
-  GColor fg = (brightness > 1500) ? GColorBlack : GColorWhite;
-  menu_layer_set_highlight_colors(s_menu_layer, bg, fg);
-  layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
+  int brightness = 299 * s_highlight_bg.r + 587 * s_highlight_bg.g + 114 * s_highlight_bg.b;
+  s_highlight_fg = (brightness > 1500) ? GColorBlack : GColorWhite;
+  style_menu(s_menu_layer);
+  style_menu(s_standings_menu);
 #endif
 }
 
@@ -117,6 +163,16 @@ static void request_refresh(void) {
     app_message_outbox_send();
     snprintf(s_status, sizeof(s_status), "Refreshing...");
     if (s_game_count == 0) menu_layer_reload_data(s_menu_layer);
+  }
+}
+
+static void request_standings(void) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) == APP_MSG_OK) {
+    dict_write_uint8(iter, MESSAGE_KEY_GetStandings, 1);
+    app_message_outbox_send();
+    snprintf(s_standings_status, sizeof(s_standings_status), "Loading...");
+    if (s_standing_count == 0 && s_standings_menu) menu_layer_reload_data(s_standings_menu);
   }
 }
 
@@ -158,6 +214,28 @@ static void parse_games(const char *payload) {
   }
 }
 
+// Payload format, one team per line: "rank|team|w|l|ot|pts"
+static void parse_standings(const char *payload) {
+  s_standing_count = 0;
+  const char *line = payload;
+  while (*line && s_standing_count < MAX_STANDINGS) {
+    const char *line_end = strchr(line, '\n');
+    if (!line_end) line_end = line + strlen(line);
+
+    Standing *s = &s_standings[s_standing_count];
+    const char *p = line;
+    p = next_field(p, line_end, s->rank, STAT_LEN);
+    p = next_field(p, line_end, s->team, TEAM_LEN);
+    p = next_field(p, line_end, s->wins, STAT_LEN);
+    p = next_field(p, line_end, s->losses, STAT_LEN);
+    p = next_field(p, line_end, s->ot_losses, STAT_LEN);
+    next_field(p, line_end, s->points, STAT_LEN);
+    s_standing_count++;
+
+    line = (*line_end) ? line_end + 1 : line_end;
+  }
+}
+
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *games = dict_find(iter, MESSAGE_KEY_Games);
   if (games) {
@@ -168,35 +246,130 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if (status) {
     snprintf(s_status, sizeof(s_status), "%s", status->value->cstring);
   }
+  Tuple *standings = dict_find(iter, MESSAGE_KEY_Standings);
+  if (standings) {
+    parse_standings(standings->value->cstring);
+    s_standings_status[0] = '\0';
+  }
+  Tuple *standings_status = dict_find(iter, MESSAGE_KEY_StandingsStatus);
+  if (standings_status) {
+    snprintf(s_standings_status, sizeof(s_standings_status), "%s",
+             standings_status->value->cstring);
+  }
   Tuple *highlight = dict_find(iter, MESSAGE_KEY_HighlightColor);
   if (highlight) {
     persist_write_int(PERSIST_KEY_HIGHLIGHT, highlight->value->int32);
-    apply_highlight(highlight->value->int32);
+    set_highlight(highlight->value->int32);
   }
   menu_layer_reload_data(s_menu_layer);
+  if (s_standings_menu) menu_layer_reload_data(s_standings_menu);
 }
 
 static void inbox_dropped(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped: %d", (int)reason);
 }
 
-// ---------- Menu ----------
+// ---------- Standings window ----------
+
+static uint16_t standings_num_rows(MenuLayer *menu, uint16_t section, void *context) {
+  return s_standing_count > 0 ? s_standing_count : 1;
+}
+
+static int16_t standings_cell_height(MenuLayer *menu, MenuIndex *index, void *context) {
+  return s_standing_count > 0 ? STANDINGS_ROW_HEIGHT : EMPTY_ROW_HEIGHT;
+}
+
+static int16_t standings_header_height(MenuLayer *menu, uint16_t section, void *context) {
+  return MENU_CELL_BASIC_HEADER_HEIGHT;
+}
+
+static void standings_draw_header(GContext *ctx, const Layer *cell, uint16_t section, void *context) {
+  GRect bounds = layer_get_bounds(cell);
+  int x = MARGIN;
+  int w = bounds.size.w - 2 * MARGIN;
+  graphics_draw_text(ctx, "Team (W-L-OT)", s_header_font,
+                     GRect(x + RANK_W + 4, -2, w - RANK_W - 4 - PTS_W, bounds.size.h),
+                     GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, "Pts", s_header_font,
+                     GRect(x + w - PTS_W, -2, PTS_W, bounds.size.h),
+                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
+}
+
+static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
+  if (s_standing_count == 0) {
+    menu_cell_basic_draw(ctx, cell, "Standings", s_standings_status, NULL);
+    return;
+  }
+  Standing *s = &s_standings[index->row];
+  GRect bounds = layer_get_bounds(cell);
+  int x = MARGIN;
+  int w = bounds.size.w - 2 * MARGIN;
+  int name_x = x + RANK_W + 4;
+
+  // Gothic glyphs sit a few pixels below the top of their box.
+  graphics_draw_text(ctx, s->rank, s_team_font, GRect(x, -3, RANK_W, LINE_HEIGHT),
+                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  draw_logo(ctx, s->team, name_x, 1);
+  graphics_draw_text(ctx, s->team, s_team_font,
+                     GRect(name_x + LOGO_SPACE, -3, w - (name_x - x) - LOGO_SPACE - PTS_W, LINE_HEIGHT),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, s->points, s_team_font, GRect(x + w - PTS_W, -3, PTS_W, LINE_HEIGHT),
+                     GTextOverflowModeFill, GTextAlignmentRight, NULL);
+
+  char record[3 * STAT_LEN + 2];
+  snprintf(record, sizeof(record), "%s-%s-%s", s->wins, s->losses, s->ot_losses);
+  graphics_draw_text(ctx, record, s_status_font,
+                     GRect(name_x + LOGO_SPACE, LINE_HEIGHT - 4, w - (name_x - x) - LOGO_SPACE,
+                           STANDINGS_ROW_HEIGHT - LINE_HEIGHT + 4),
+                     GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+}
+
+static void standings_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
+  request_standings();
+  vibes_short_pulse();
+}
+
+static void standings_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_standings_menu = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_standings_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = standings_num_rows,
+    .get_cell_height = standings_cell_height,
+    .get_header_height = standings_header_height,
+    .draw_header = standings_draw_header,
+    .draw_row = standings_draw_row,
+    .select_click = standings_select_click,
+  });
+  style_menu(s_standings_menu);
+  menu_layer_set_click_config_onto_window(s_standings_menu, window);
+  layer_add_child(root, menu_layer_get_layer(s_standings_menu));
+  request_standings();
+}
+
+static void standings_window_unload(Window *window) {
+  menu_layer_destroy(s_standings_menu);
+  s_standings_menu = NULL;
+}
+
+// ---------- Game list ----------
+
+static uint16_t get_num_sections(MenuLayer *menu, void *context) {
+  return 2;
+}
 
 static uint16_t get_num_rows(MenuLayer *menu, uint16_t section, void *context) {
+  if (section == SECTION_LINK) return 1;
   return s_game_count > 0 ? s_game_count : 1;
 }
 
 static int16_t get_cell_height(MenuLayer *menu, MenuIndex *index, void *context) {
+  if (index->section == SECTION_LINK) return LINK_ROW_HEIGHT;
   return s_game_count > 0 ? ROW_HEIGHT : EMPTY_ROW_HEIGHT;
 }
 
 // One team line: [logo] Name ........ score
 static void draw_team(GContext *ctx, int x, int y, int w, const char *team, const char *score) {
-  GBitmap *logo = find_logo(team);
-  if (logo) {
-    graphics_context_set_compositing_mode(ctx, GCompOpSet);
-    graphics_draw_bitmap_in_rect(ctx, logo, GRect(x, y + 1, LOGO_W, LOGO_H));
-  }
+  draw_logo(ctx, team, x, y + 1);
   // Gothic glyphs sit a few pixels below the top of their box.
   graphics_draw_text(ctx, team, s_team_font,
                      GRect(x + LOGO_SPACE, y - 3, w - LOGO_SPACE - SCORE_W, LINE_HEIGHT),
@@ -207,15 +380,21 @@ static void draw_team(GContext *ctx, int x, int y, int w, const char *team, cons
 }
 
 static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
+  GRect bounds = layer_get_bounds(cell);
+  int x = MARGIN;
+  int w = bounds.size.w - 2 * MARGIN;
+
+  if (index->section == SECTION_LINK) {
+    graphics_draw_text(ctx, "Standings", s_team_font,
+                       GRect(x, (LINK_ROW_HEIGHT - LINE_HEIGHT) / 2 - 3, w, LINE_HEIGHT),
+                       GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    return;
+  }
   if (s_game_count == 0) {
     menu_cell_basic_draw(ctx, cell, "MASL Scores", s_status, NULL);
     return;
   }
   Game *g = &s_games[index->row];
-  GRect bounds = layer_get_bounds(cell);
-  int x = MARGIN;
-  int w = bounds.size.w - 2 * MARGIN;
-
   draw_team(ctx, x, 0, w, g->away, g->away_score);
   draw_team(ctx, x, LINE_HEIGHT, w, g->home, g->home_score);
   graphics_draw_text(ctx, g->subtitle, s_status_font,
@@ -224,6 +403,10 @@ static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *c
 }
 
 static void select_click(MenuLayer *menu, MenuIndex *index, void *context) {
+  if (index->section == SECTION_LINK) {
+    window_stack_push(s_standings_window, true);
+    return;
+  }
   request_refresh();
   vibes_short_pulse();
 }
@@ -236,17 +419,22 @@ static void window_load(Window *window) {
 
   s_team_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   s_status_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  s_header_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   load_logos();
 
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
+    .get_num_sections = get_num_sections,
     .get_num_rows = get_num_rows,
     .get_cell_height = get_cell_height,
     .draw_row = draw_row,
     .select_click = select_click,
   });
-  apply_highlight(load_highlight());
+  set_highlight(load_highlight());
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
+  // Start on the first game, with the Standings row visible just above it.
+  menu_layer_set_selected_index(s_menu_layer, (MenuIndex) { SECTION_GAMES, 0 },
+                                MenuRowAlignNone, false);
   layer_add_child(root, menu_layer_get_layer(s_menu_layer));
 }
 
@@ -256,6 +444,12 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
+  s_standings_window = window_create();
+  window_set_window_handlers(s_standings_window, (WindowHandlers) {
+    .load = standings_window_load,
+    .unload = standings_window_unload,
+  });
+
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = window_load,
@@ -270,6 +464,7 @@ static void init(void) {
 
 static void deinit(void) {
   window_destroy(s_window);
+  window_destroy(s_standings_window);
 }
 
 int main(void) {

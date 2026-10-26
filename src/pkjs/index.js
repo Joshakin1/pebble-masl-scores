@@ -1,10 +1,15 @@
 // MASL Scores - phone-side component (PebbleKit JS)
 // Fetches the MASL score ticker from DigitalShift, parses the HTML partial,
-// and sends a compact list of games to the watch. Also runs the settings page.
+// and sends a compact list of games to the watch. Also fetches the division
+// standings on request and runs the settings page.
 
 var TEAMS = require('./teams');
 
 var TICKER_URL = 'https://web.api.digitalshift.ca/partials/score-ticker';
+// Standings table for the MASL division, as shown at
+// maslsoccer.com/stats#/192/standings?render=division&division_id=50066
+var STANDINGS_URL = 'https://web.api.digitalshift.ca/partials/stats/standings/table' +
+                    '?division_id=50066&league_toggle=division';
 // Public site token embedded in maslsoccer.com. If the app starts showing
 // "Error 401/403", grab a fresh ticket from DevTools and paste it here.
 var TICKET = 'sBo7AT5RH6DLyYeFtGiJvpXa_JsGl9LIj8dSnDZTEwj5gPgukowAIc9Swg-t9T6dgm0IUwtnCacatO0TAb05PNqb';
@@ -99,6 +104,36 @@ function parseTicker(html) {
   return games;
 }
 
+// The partial renders the table twice (screen and print); use the first.
+// Columns are found by header text, so reordering on the site doesn't matter.
+function parseStandings(html) {
+  var table = (html.split('<table')[1] || '').split('</table>')[0];
+  var headers = (table.match(/<th[^>]*>[\s\S]*?<\/th>/g) || []).map(stripTags);
+  var col = function (name) { return headers.indexOf(name); };
+  var rankCol = col('Rk'), teamCol = col('Team'), wCol = col('W'), lCol = col('L'),
+      otCol = col('OT'), ptsCol = col('Pts');
+  if (teamCol === -1 || ptsCol === -1) return [];
+
+  var body = table.split('<tbody')[1] || '';
+  var rows = [];
+  body.split('<tr').slice(1).forEach(function (tr) {
+    var cells = tr.split('<td').slice(1).map(function (c) {
+      return c.replace(/^[^>]*>/, '');
+    });
+    if (cells.length <= ptsCol) return;
+    // The team cell has the full name ("St. Louis Ambush") for wide screens
+    // and the short name ("Ambush") in span.p; use the short one.
+    var shortName = cells[teamCol].match(/<span class="p">([\s\S]*?)<\/span>/);
+    var text = function (i) { return i === -1 ? '' : clean(stripTags(cells[i])); };
+    rows.push({
+      rank: rankCol === -1 ? String(rows.length + 1) : text(rankCol),
+      team: clean(stripTags(shortName ? shortName[1] : cells[teamCol])),
+      w: text(wCol), l: text(lCol), ot: text(otCol), pts: text(ptsCol)
+    });
+  });
+  return rows;
+}
+
 function sendStatus(text) {
   Pebble.sendAppMessage({ Status: text }, null, function () {
     console.log('Failed to send status');
@@ -110,9 +145,11 @@ function scheduleRefresh(anyLive) {
   refreshTimer = setTimeout(fetchScores, anyLive ? LIVE_REFRESH_MS : IDLE_REFRESH_MS);
 }
 
-function fetchScores() {
+// GET a DigitalShift partial and pass its HTML content to onContent, or a
+// short error message for the watch to onError.
+function getPartial(url, onContent, onError) {
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', TICKER_URL, true);
+  xhr.open('GET', url, true);
   xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
   xhr.setRequestHeader('Authorization', 'ticket="' + TICKET + '"');
   // Some environments ignore these; harmless if so.
@@ -124,13 +161,29 @@ function fetchScores() {
 
   xhr.onload = function () {
     if (xhr.status !== 200) {
-      sendStatus('Error ' + xhr.status);
-      scheduleRefresh(false);
+      onError('Error ' + xhr.status);
       return;
     }
+    var content;
+    try {
+      content = JSON.parse(xhr.responseText).content || '';
+    } catch (e) {
+      console.log('Bad response from ' + url + ': ' + e);
+      onError('Could not read data');
+      return;
+    }
+    onContent(content);
+  };
+  xhr.onerror = function () { onError('No connection'); };
+  xhr.ontimeout = function () { onError('Timed out'); };
+  xhr.send();
+}
+
+function fetchScores() {
+  getPartial(TICKER_URL, function (html) {
     var games;
     try {
-      games = parseTicker(JSON.parse(xhr.responseText).content || '');
+      games = parseTicker(html);
     } catch (e) {
       console.log('Parse error: ' + e);
       sendStatus('Could not read scores');
@@ -156,10 +209,41 @@ function fetchScores() {
       console.log('Failed to send games');
     });
     scheduleRefresh(games.some(function (g) { return g.live; }));
-  };
-  xhr.onerror = function () { sendStatus('No connection'); scheduleRefresh(false); };
-  xhr.ontimeout = function () { sendStatus('Timed out'); scheduleRefresh(false); };
-  xhr.send();
+  }, function (message) {
+    sendStatus(message);
+    scheduleRefresh(false);
+  });
+}
+
+function sendStandingsStatus(text) {
+  Pebble.sendAppMessage({ StandingsStatus: text }, null, function () {
+    console.log('Failed to send standings status');
+  });
+}
+
+// Fetched only when the watch opens the standings screen.
+function fetchStandings() {
+  getPartial(STANDINGS_URL, function (html) {
+    var rows;
+    try {
+      rows = parseStandings(html);
+    } catch (e) {
+      console.log('Standings parse error: ' + e);
+      sendStandingsStatus('Could not read standings');
+      return;
+    }
+    if (rows.length === 0) {
+      sendStandingsStatus('No standings listed');
+      return;
+    }
+    // One team per line: rank|team|w|l|ot|pts
+    var payload = rows.map(function (r) {
+      return [r.rank, r.team, r.w, r.l, r.ot, r.pts].join('|');
+    }).join('\n');
+    Pebble.sendAppMessage({ Standings: payload }, null, function () {
+      console.log('Failed to send standings');
+    });
+  }, sendStandingsStatus);
 }
 
 if (typeof Pebble !== 'undefined') {
@@ -171,6 +255,7 @@ if (typeof Pebble !== 'undefined') {
   Pebble.addEventListener('ready', fetchScores);
   Pebble.addEventListener('appmessage', function (e) {
     if (e.payload && e.payload.Refresh) fetchScores();
+    if (e.payload && e.payload.GetStandings) fetchStandings();
   });
 
   Pebble.addEventListener('showConfiguration', function () {
@@ -196,5 +281,6 @@ if (typeof Pebble !== 'undefined') {
 
 // Exported only so the parser can be tested outside the watch environment.
 if (typeof module !== 'undefined' && typeof Pebble === 'undefined') {
-  module.exports = { parseTicker: parseTicker, filterGames: filterGames };
+  module.exports = { parseTicker: parseTicker, filterGames: filterGames,
+                     parseStandings: parseStandings };
 }
