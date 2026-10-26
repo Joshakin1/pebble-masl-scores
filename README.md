@@ -22,7 +22,7 @@ DigitalShift), parses them, and sends compact versions to the watch.
 - Controls:
   - **Select** switches between the schedule and the standings.
   - **Long-press Select** refreshes the current screen.
-  - **Back** from the standings also returns to the schedule.
+  - **Back** exits the app from either screen.
 - Auto-refresh of the schedule every 10 minutes
 - Settings page in the Pebble phone app (gear icon next to the app):
   - **Selected row color** (color watches only). The text switches between
@@ -40,8 +40,7 @@ every game is upcoming and every standings stat is 0.
 
 Known issues and open questions:
 
-- **The standings screen has only been checked in the emulator**, and the division ID
-  (`50066`) is hard-coded in `STANDINGS_URL`. If MASL changes divisions for a
+- **The division ID for standings** (`50066`) is hard-coded in `STANDINGS_URL`. If MASL changes divisions for a
   new season, take the new ID from the standings page URL on maslsoccer.com.
 - **Score and live/final parsing are guesses.** No live or final games have
   appeared in the feed yet. Once the season starts (first game Nov 27, 2026),

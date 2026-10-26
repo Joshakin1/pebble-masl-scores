@@ -97,10 +97,13 @@ static GColor s_highlight_bg;
 static GColor s_highlight_fg;
 #endif
 
+// Only one of the two windows is on the stack at a time (Select swaps them),
+// so Back always exits the app. Each menu is NULL while its window is closed.
 static Window *s_window;
 static MenuLayer *s_menu_layer;
+static MenuIndex s_games_selection;  // restored when the schedule reopens
 static Window *s_standings_window;
-static MenuLayer *s_standings_menu;  // NULL while the standings window is closed
+static MenuLayer *s_standings_menu;
 static GFont s_team_font;
 static GFont s_status_font;
 static GFont s_header_font;
@@ -182,7 +185,7 @@ static void request_refresh(void) {
     dict_write_uint8(iter, MESSAGE_KEY_Refresh, 1);
     app_message_outbox_send();
     snprintf(s_status, sizeof(s_status), "Refreshing...");
-    if (s_game_count == 0) menu_layer_reload_data(s_menu_layer);
+    if (s_game_count == 0 && s_menu_layer) menu_layer_reload_data(s_menu_layer);
   }
 }
 
@@ -284,7 +287,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
     persist_write_int(PERSIST_KEY_HIGHLIGHT, highlight->value->int32);
     set_highlight(highlight->value->int32);
   }
-  menu_layer_reload_data(s_menu_layer);
+  if (s_menu_layer) menu_layer_reload_data(s_menu_layer);
   if (s_standings_menu) menu_layer_reload_data(s_standings_menu);
 }
 
@@ -378,9 +381,21 @@ static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *inde
                     STANDINGS_ROW_HEIGHT - LINE_HEIGHT + 3, values);
 }
 
-// Select goes back to the schedule; a long press reloads the standings.
+static void remove_window(void *window) {
+  window_stack_remove((Window *)window, false);
+}
+
+// Replace the current window with the other one rather than stacking them.
+// The old window is removed on the next tick: removing it now would destroy
+// its MenuLayer while that layer is still handling the click.
+static void swap_window(Window *show, Window *hide) {
+  window_stack_push(show, true);
+  app_timer_register(0, remove_window, hide);
+}
+
+// Select switches to the schedule; a long press reloads the standings.
 static void standings_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
-  window_stack_pop(true);
+  swap_window(s_window, s_standings_window);
 }
 
 static void standings_select_long_click(MenuLayer *menu, MenuIndex *index, void *context) {
@@ -449,9 +464,9 @@ static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *c
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 }
 
-// Select opens the standings; a long press refreshes the schedule.
+// Select switches to the standings; a long press refreshes the schedule.
 static void select_click(MenuLayer *menu, MenuIndex *index, void *context) {
-  window_stack_push(s_standings_window, true);
+  swap_window(s_standings_window, s_window);
 }
 
 static void select_long_click(MenuLayer *menu, MenuIndex *index, void *context) {
@@ -465,11 +480,6 @@ static void window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(root);
 
-  s_team_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_status_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-  s_header_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  load_logos();
-
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
     .get_num_rows = get_num_rows,
@@ -478,17 +488,29 @@ static void window_load(Window *window) {
     .select_click = select_click,
     .select_long_click = select_long_click,
   });
-  set_highlight(load_highlight());
+  style_menu(s_menu_layer);
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
+  if (s_games_selection.row < get_num_rows(s_menu_layer, 0, NULL)) {
+    menu_layer_set_selected_index(s_menu_layer, s_games_selection, MenuRowAlignCenter, false);
+  }
   layer_add_child(root, menu_layer_get_layer(s_menu_layer));
 }
 
 static void window_unload(Window *window) {
+  s_games_selection = menu_layer_get_selected_index(s_menu_layer);
   menu_layer_destroy(s_menu_layer);
-  unload_logos();
+  s_menu_layer = NULL;
 }
 
 static void init(void) {
+  // Fonts, logos and colors are shared by both windows, so they live as long
+  // as the app rather than either window.
+  s_team_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  s_status_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  s_header_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  load_logos();
+  set_highlight(load_highlight());
+
   s_standings_window = window_create();
   window_set_window_handlers(s_standings_window, (WindowHandlers) {
     .load = standings_window_load,
@@ -510,6 +532,7 @@ static void init(void) {
 static void deinit(void) {
   window_destroy(s_window);
   window_destroy(s_standings_window);
+  unload_logos();
 }
 
 int main(void) {
