@@ -17,7 +17,8 @@ DigitalShift), parses them, and sends compact versions to the watch.
   and points, with games played (GP), W-L-OT, regulation wins (RW) and goal
   differential (GD) underneath. GP shows who has games in hand; RW and GD are
   the main tiebreakers after points (head-to-head isn't shown). The header is
-  a key for the numbers. It loads each time it opens.
+  a key for the numbers, and the last row lists the full tiebreak order:
+  Pts > RW > W > H2H > GD > GF > GA. It loads each time it opens.
 - Controls:
   - **Select** switches between the schedule and the standings.
   - **Long-press Select** refreshes the current screen.
@@ -39,7 +40,7 @@ every game is upcoming and every standings stat is 0.
 
 Known issues and open questions:
 
-- **The standings screen hasn't run on a device yet**, and the division ID
+- **The standings screen has only been checked in the emulator**, and the division ID
   (`50066`) is hard-coded in `STANDINGS_URL`. If MASL changes divisions for a
   new season, take the new ID from the standings page URL on maslsoccer.com.
 - **Score and live/final parsing are guesses.** No live or final games have

@@ -16,6 +16,9 @@
 // Each standings row: rank, logo, team and points, then stat columns
 // underneath, keyed by the header.
 #define STANDINGS_ROW_HEIGHT 36
+// Last standings row: "Tiebreakers" title plus the order, wrapping to two
+// lines on 144px screens.
+#define TIEBREAK_ROW_HEIGHT 48
 #define NUM_STAT_COLUMNS 4
 // Height of a single title/status row shown before data arrives.
 #define EMPTY_ROW_HEIGHT 44
@@ -291,12 +294,14 @@ static void inbox_dropped(AppMessageResult reason, void *context) {
 
 // ---------- Standings window ----------
 
+// After the teams, one more row lists the full MASL tiebreak order.
 static uint16_t standings_num_rows(MenuLayer *menu, uint16_t section, void *context) {
-  return s_standing_count > 0 ? s_standing_count : 1;
+  return s_standing_count > 0 ? s_standing_count + 1 : 1;
 }
 
 static int16_t standings_cell_height(MenuLayer *menu, MenuIndex *index, void *context) {
-  return s_standing_count > 0 ? STANDINGS_ROW_HEIGHT : EMPTY_ROW_HEIGHT;
+  if (s_standing_count == 0) return EMPTY_ROW_HEIGHT;
+  return index->row < s_standing_count ? STANDINGS_ROW_HEIGHT : TIEBREAK_ROW_HEIGHT;
 }
 
 static int16_t standings_header_height(MenuLayer *menu, uint16_t section, void *context) {
@@ -329,15 +334,27 @@ static void standings_draw_header(GContext *ctx, const Layer *cell, uint16_t sec
   draw_stat_columns(ctx, s_header_font, stats_x, -2, w - (stats_x - x), bounds.size.h, labels);
 }
 
+static void draw_tiebreak_row(GContext *ctx, int x, int w) {
+  graphics_draw_text(ctx, "Tiebreakers", s_header_font, GRect(x, -2, w, 16),
+                     GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, "Pts > RW > W > H2H > GD > GF > GA", s_status_font,
+                     GRect(x, 12, w, TIEBREAK_ROW_HEIGHT - 12),
+                     GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+}
+
 static void standings_draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
   if (s_standing_count == 0) {
     menu_cell_basic_draw(ctx, cell, "Standings", s_standings_status, NULL);
     return;
   }
-  Standing *s = &s_standings[index->row];
   GRect bounds = layer_get_bounds(cell);
   int x = MARGIN;
   int w = bounds.size.w - 2 * MARGIN;
+  if (index->row >= s_standing_count) {
+    draw_tiebreak_row(ctx, x, w);
+    return;
+  }
+  Standing *s = &s_standings[index->row];
   int name_x = x + RANK_W + 4;
 
   // Gothic glyphs sit a few pixels below the top of their box.
