@@ -61,10 +61,11 @@ typedef struct {
 
 // Games played and record, then the main tiebreakers after points in order
 // (head-to-head is skipped). Columns that don't fit the screen width are
-// dropped from the end; all four fit on a 144px screen.
+// dropped from the end; all four fit on a 144px screen (114 of 116px).
+// W-L-OT gets the most room so its bold label isn't cut off.
 static const StatColumn s_stat_columns[NUM_STAT_COLUMNS] = {
   { "GP", 18, GTextAlignmentLeft },
-  { "W-L-OT", 44, GTextAlignmentCenter },
+  { "W-L-OT", 52, GTextAlignmentCenter },
   { "RW", 20, GTextAlignmentRight },
   { "GD", 24, GTextAlignmentRight },
 };
