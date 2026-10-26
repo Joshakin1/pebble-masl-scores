@@ -111,7 +111,8 @@ function parseStandings(html) {
   var headers = (table.match(/<th[^>]*>[\s\S]*?<\/th>/g) || []).map(stripTags);
   var col = function (name) { return headers.indexOf(name); };
   var rankCol = col('Rk'), teamCol = col('Team'), wCol = col('W'), lCol = col('L'),
-      otCol = col('OT'), ptsCol = col('Pts');
+      otCol = col('OT'), ptsCol = col('Pts'), diffCol = col('Diff'),
+      streakCol = col('Streak');
   if (teamCol === -1 || ptsCol === -1) return [];
 
   var body = table.split('<tbody')[1] || '';
@@ -128,7 +129,8 @@ function parseStandings(html) {
     rows.push({
       rank: rankCol === -1 ? String(rows.length + 1) : text(rankCol),
       team: clean(stripTags(shortName ? shortName[1] : cells[teamCol])),
-      w: text(wCol), l: text(lCol), ot: text(otCol), pts: text(ptsCol)
+      w: text(wCol), l: text(lCol), ot: text(otCol), pts: text(ptsCol),
+      diff: text(diffCol), streak: text(streakCol)
     });
   });
   return rows;
@@ -236,9 +238,9 @@ function fetchStandings() {
       sendStandingsStatus('No standings listed');
       return;
     }
-    // One team per line: rank|team|w|l|ot|pts
+    // One team per line: rank|team|w|l|ot|pts|diff|streak
     var payload = rows.map(function (r) {
-      return [r.rank, r.team, r.w, r.l, r.ot, r.pts].join('|');
+      return [r.rank, r.team, r.w, r.l, r.ot, r.pts, r.diff, r.streak].join('|');
     }).join('\n');
     Pebble.sendAppMessage({ Standings: payload }, null, function () {
       console.log('Failed to send standings');

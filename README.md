@@ -13,8 +13,10 @@ DigitalShift), parses them, and sends compact versions to the watch.
   home team, then the date and status.
 - Team logos next to each team name on color watches (names only on
   black-and-white watches)
-- **Standings** screen with rank, logo, team, W-L-OT and points for the MASL
-  division. It loads each time it opens.
+- **Standings** screen for the MASL division. Each team shows rank, logo, name
+  and points, with W-L-OT, goal differential (GD) and current streak (Strk)
+  underneath. The header is a key for those numbers. It loads each time it
+  opens.
 - Controls:
   - **Select** switches between the schedule and the standings.
   - **Long-press Select** refreshes the current screen.
@@ -71,7 +73,8 @@ Ideas:
 
 The phone sends the watch one line per game:
 `away|awayScore|home|homeScore|subtitle`. Scores are empty until a game starts.
-Standings are sent the same way, one line per team: `rank|team|w|l|ot|pts`.
+Standings are sent the same way, one line per team:
+`rank|team|w|l|ot|pts|diff|streak`.
 The team filter is applied on the phone before sending and saved in the phone's
 `localStorage`. The highlight color is sent to the watch and saved there.
 
