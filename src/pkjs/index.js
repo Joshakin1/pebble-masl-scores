@@ -23,8 +23,17 @@ var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 
 // localStorage key for the team filter: a JSON array of team names.
 var FILTER_KEY = 'teamFilter';
-// localStorage key for game times: 'eastern' (as listed) or 'local'.
+// localStorage key for game times: 'eastern' (as listed), 'local' or 'home'.
 var TIME_ZONE_KEY = 'timeZone';
+
+// Each team's arena time zone: hours behind UTC in standard time, and the
+// zone letter for the abbreviation ("C" -> "CST"/"CDT"). A home team that
+// isn't listed keeps the Eastern time from the site.
+var HOME_ZONES = {
+  Ambush: [6, 'C'], Blast: [5, 'E'], Comets: [6, 'C'], Sockers: [8, 'P'],
+  Spirits: [5, 'E'], Stars: [8, 'P'], Strykers: [8, 'P'], UCFC: [5, 'E'],
+  Wave: [6, 'C']
+};
 
 var refreshTimer = null;
 
@@ -36,8 +45,8 @@ function loadTeamFilter() {
   }
 }
 
-function loadLocalTimes() {
-  return localStorage.getItem(TIME_ZONE_KEY) === 'local';
+function loadTimeZone() {
+  return localStorage.getItem(TIME_ZONE_KEY) || 'eastern';
 }
 
 // Keep games involving any of the given teams. An empty filter keeps all.
@@ -72,22 +81,21 @@ function parseTeam(chunk) {
   return { name: name, score: scoreMatch ? scoreMatch[1] : null };
 }
 
-// Hours behind UTC for US Eastern time on the given date: DST runs from the
-// second Sunday in March to the first Sunday in November. The site labels
-// every time "EST", but games after the March change are assumed to be EDT.
-function easternOffset(year, month, day) {
+// Whether US daylight saving time is in effect on the given date: it runs
+// from the second Sunday in March to the first Sunday in November. The site
+// labels every time "EST", but games after the March change are assumed to
+// be EDT.
+function isDst(year, month, day) {
   var sunday = function (m, n) {
     var first = new Date(Date.UTC(year, m, 1)).getUTCDay();
     return 1 + (7 - first) % 7 + 7 * (n - 1);
   };
-  var dst = (month > 2 || (month === 2 && day >= sunday(2, 2))) &&
-            (month < 10 || (month === 10 && day < sunday(10, 1)));
-  return dst ? 4 : 5;
+  return (month > 2 || (month === 2 && day >= sunday(2, 2))) &&
+         (month < 10 || (month === 10 && day < sunday(10, 1)));
 }
 
 // "6:05pm" style, matching the site.
-function formatTime(d) {
-  var h = d.getHours(), m = d.getMinutes();
+function formatTime(h, m) {
   return ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? 'am' : 'pm');
 }
 
@@ -102,18 +110,32 @@ function zoneName(d) {
 }
 
 // Turn an aria-label start ("November 27, 2026 at 6:05pm") from Eastern into
-// a phone-local Date, or null if it doesn't parse.
-function localStart(label) {
+// a Date, or null if it doesn't parse.
+function startTime(label) {
   var m = label.match(/^(\w+) (\d+), (\d{4}) at (\d{1,2}):(\d{2})\s*([ap]m)/i);
   var month = m ? MONTHS.indexOf(m[1]) : -1;
   if (month === -1) return null;
   var year = +m[3], day = +m[2];
   var hour = +m[4] % 12 + (/pm/i.test(m[6]) ? 12 : 0);
-  return new Date(Date.UTC(year, month, day, hour + easternOffset(year, month, day), +m[5]));
+  var offset = isDst(year, month, day) ? 4 : 5;
+  return new Date(Date.UTC(year, month, day, hour + offset, +m[5]));
 }
 
-// localTimes: convert scheduled start times from Eastern to the phone's zone.
-function parseTicker(html, localTimes) {
+// Date and time of start in the home team's zone ("Nov 27 5:05pm CST"), or
+// null if the team's zone isn't known.
+function homeTime(start, team) {
+  var zone = HOME_ZONES[team];
+  if (!zone) return null;
+  var dst = isDst(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  var d = new Date(start.getTime() - (zone[0] - (dst ? 1 : 0)) * 3600 * 1000);
+  return { date: MONTHS[d.getUTCMonth()].slice(0, 3) + ' ' + d.getUTCDate(),
+           time: formatTime(d.getUTCHours(), d.getUTCMinutes()) + ' ' + zone[1] +
+                 (dst ? 'DT' : 'ST') };
+}
+
+// timeZone: 'eastern' keeps the site's times; 'local' converts scheduled
+// start times to the phone's zone and 'home' to the home team's.
+function parseTicker(html, timeZone) {
   var games = [];
   var items = html.split('<li class="item"');
   for (var i = 1; i < items.length && games.length < MAX_GAMES; i++) {
@@ -137,11 +159,17 @@ function parseTicker(html, localTimes) {
     var isFinal = /final/i.test(status);
     var live = !scheduled && !isFinal && status.length > 0;
 
-    var start = scheduled && localTimes ? localStart(label) : null;
-    if (start) {
+    var start = scheduled && timeZone !== 'eastern' ? startTime(label) : null;
+    if (start && timeZone === 'local') {
       date = MONTHS[start.getMonth()].slice(0, 3) + ' ' + start.getDate();
       var zone = zoneName(start);
-      status = formatTime(start) + (zone ? ' ' + zone : '');
+      status = formatTime(start.getHours(), start.getMinutes()) + (zone ? ' ' + zone : '');
+    } else if (start && timeZone === 'home') {
+      var atHome = homeTime(start, clean(home.name));
+      if (atHome) {
+        date = atHome.date;
+        status = atHome.time;
+      }
     }
 
     var subtitle = (live ? 'LIVE ' : '') + (date ? date + ' ' : '') + status;
@@ -237,7 +265,7 @@ function fetchScores() {
   getPartial(TICKER_URL, function (html) {
     var games;
     try {
-      games = parseTicker(html, loadLocalTimes());
+      games = parseTicker(html, loadTimeZone());
     } catch (e) {
       console.log('Parse error: ' + e);
       sendStatus('Could not read scores');

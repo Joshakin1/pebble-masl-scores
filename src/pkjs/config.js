@@ -29,7 +29,8 @@ module.exports = [
         defaultValue: 'eastern',
         options: [
           { label: 'Eastern (as listed)', value: 'eastern' },
-          { label: 'My time zone', value: 'local' }
+          { label: 'My time zone', value: 'local' },
+          { label: "Home team's time zone", value: 'home' }
         ]
       }
     ]

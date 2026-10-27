@@ -30,7 +30,9 @@ DigitalShift), parses them, and sends compact versions to the watch.
   - **Selected row color** (color watches only). The text switches between
     black and white automatically to stay readable.
   - **Game times:** show start times in Eastern, as MASL lists them (the
-    default), or converted to your phone's time zone, e.g. `5:05pm CST`.
+    default), converted to your phone's time zone (e.g. `5:05pm CST`), or
+    in the home team's time zone, the local time at the arena. A home team
+    without a known zone keeps the Eastern time.
     Eastern times are treated as EDT from the second Sunday in March, even
     though the site labels them all "EST".
   - **Team filter:** only show games involving the teams you check. Leave every
