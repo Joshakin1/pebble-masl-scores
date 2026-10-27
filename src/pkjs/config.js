@@ -21,6 +21,22 @@ module.exports = [
   {
     type: 'section',
     items: [
+      { type: 'heading', defaultValue: 'Game times' },
+      {
+        type: 'select',
+        messageKey: 'TimeZone',
+        label: 'Show start times in',
+        defaultValue: 'eastern',
+        options: [
+          { label: 'Eastern (as listed)', value: 'eastern' },
+          { label: 'My time zone', value: 'local' }
+        ]
+      }
+    ]
+  },
+  {
+    type: 'section',
+    items: [
       { type: 'heading', defaultValue: 'Teams' },
       {
         type: 'checkboxgroup',

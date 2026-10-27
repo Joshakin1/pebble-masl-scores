@@ -18,14 +18,13 @@ var MAX_GAMES = 30;
 var LIVE_REFRESH_MS = 60 * 1000;      // while a game is in progress
 var IDLE_REFRESH_MS = 10 * 60 * 1000; // otherwise
 
-var MONTHS = {
-  January: 'Jan', February: 'Feb', March: 'Mar', April: 'Apr', May: 'May',
-  June: 'Jun', July: 'Jul', August: 'Aug', September: 'Sep', October: 'Oct',
-  November: 'Nov', December: 'Dec'
-};
+var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+              'August', 'September', 'October', 'November', 'December'];
 
 // localStorage key for the team filter: a JSON array of team names.
 var FILTER_KEY = 'teamFilter';
+// localStorage key for game times: 'eastern' (as listed) or 'local'.
+var TIME_ZONE_KEY = 'timeZone';
 
 var refreshTimer = null;
 
@@ -35,6 +34,10 @@ function loadTeamFilter() {
   } catch (e) {
     return [];
   }
+}
+
+function loadLocalTimes() {
+  return localStorage.getItem(TIME_ZONE_KEY) === 'local';
 }
 
 // Keep games involving any of the given teams. An empty filter keeps all.
@@ -69,7 +72,48 @@ function parseTeam(chunk) {
   return { name: name, score: scoreMatch ? scoreMatch[1] : null };
 }
 
-function parseTicker(html) {
+// Hours behind UTC for US Eastern time on the given date: DST runs from the
+// second Sunday in March to the first Sunday in November. The site labels
+// every time "EST", but games after the March change are assumed to be EDT.
+function easternOffset(year, month, day) {
+  var sunday = function (m, n) {
+    var first = new Date(Date.UTC(year, m, 1)).getUTCDay();
+    return 1 + (7 - first) % 7 + 7 * (n - 1);
+  };
+  var dst = (month > 2 || (month === 2 && day >= sunday(2, 2))) &&
+            (month < 10 || (month === 10 && day < sunday(10, 1)));
+  return dst ? 4 : 5;
+}
+
+// "6:05pm" style, matching the site.
+function formatTime(d) {
+  var h = d.getHours(), m = d.getMinutes();
+  return ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? 'am' : 'pm');
+}
+
+// The phone's short zone name ("CST"), or '' if the JS engine can't say.
+function zoneName(d) {
+  try {
+    var m = d.toLocaleTimeString('en-US', { timeZoneName: 'short' }).match(/ ([A-Z]{2,5})$/);
+    return m ? m[1] : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+// Turn an aria-label start ("November 27, 2026 at 6:05pm") from Eastern into
+// a phone-local Date, or null if it doesn't parse.
+function localStart(label) {
+  var m = label.match(/^(\w+) (\d+), (\d{4}) at (\d{1,2}):(\d{2})\s*([ap]m)/i);
+  var month = m ? MONTHS.indexOf(m[1]) : -1;
+  if (month === -1) return null;
+  var year = +m[3], day = +m[2];
+  var hour = +m[4] % 12 + (/pm/i.test(m[6]) ? 12 : 0);
+  return new Date(Date.UTC(year, month, day, hour + easternOffset(year, month, day), +m[5]));
+}
+
+// localTimes: convert scheduled start times from Eastern to the phone's zone.
+function parseTicker(html, localTimes) {
   var games = [];
   var items = html.split('<li class="item"');
   for (var i = 1; i < items.length && games.length < MAX_GAMES; i++) {
@@ -77,7 +121,7 @@ function parseTicker(html) {
 
     var label = (c.match(/aria-label="([^"]*)"/) || [])[1] || '';
     var dm = label.match(/^(\w+) (\d+), \d{4} at /);
-    var date = dm ? (MONTHS[dm[1]] || dm[1].slice(0, 3)) + ' ' + dm[2] : '';
+    var date = dm ? dm[1].slice(0, 3) + ' ' + dm[2] : '';
 
     // Split on the exact class "team" (not "team-area" / "teams").
     var teamChunks = c.split('<div class="team"').slice(1, 3);
@@ -92,6 +136,13 @@ function parseTicker(html) {
     var scheduled = /^\d{1,2}:\d{2}\s*[ap]m/i.test(status);
     var isFinal = /final/i.test(status);
     var live = !scheduled && !isFinal && status.length > 0;
+
+    var start = scheduled && localTimes ? localStart(label) : null;
+    if (start) {
+      date = MONTHS[start.getMonth()].slice(0, 3) + ' ' + start.getDate();
+      var zone = zoneName(start);
+      status = formatTime(start) + (zone ? ' ' + zone : '');
+    }
 
     var subtitle = (live ? 'LIVE ' : '') + (date ? date + ' ' : '') + status;
 
@@ -186,7 +237,7 @@ function fetchScores() {
   getPartial(TICKER_URL, function (html) {
     var games;
     try {
-      games = parseTicker(html);
+      games = parseTicker(html, loadLocalTimes());
     } catch (e) {
       console.log('Parse error: ' + e);
       sendStatus('Could not read scores');
@@ -272,6 +323,8 @@ if (typeof Pebble !== 'undefined') {
     var checked = (settings.FilterTeams && settings.FilterTeams.value) || [];
     var teams = TEAMS.filter(function (t, i) { return checked[i]; });
     localStorage.setItem(FILTER_KEY, JSON.stringify(teams));
+
+    if (settings.TimeZone) localStorage.setItem(TIME_ZONE_KEY, settings.TimeZone.value);
 
     if (settings.HighlightColor) {
       Pebble.sendAppMessage({ HighlightColor: settings.HighlightColor.value }, null, function () {

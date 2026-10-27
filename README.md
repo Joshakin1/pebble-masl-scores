@@ -29,6 +29,10 @@ DigitalShift), parses them, and sends compact versions to the watch.
 - Settings page in the Pebble phone app (gear icon next to the app):
   - **Selected row color** (color watches only). The text switches between
     black and white automatically to stay readable.
+  - **Game times:** show start times in Eastern, as MASL lists them (the
+    default), or converted to your phone's time zone, e.g. `5:05pm CST`.
+    Eastern times are treated as EDT from the second Sunday in March, even
+    though the site labels them all "EST".
   - **Team filter:** only show games involving the teams you check. Leave every
     team unchecked to show all games.
 - Planned, not yet verified: scores, a `LIVE` marker on in-progress games, and
