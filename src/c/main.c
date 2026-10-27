@@ -393,6 +393,13 @@ static void swap_window(Window *show, Window *hide) {
   app_timer_register(0, remove_window, hide);
 }
 
+// The selection stops at the last team: the tiebreak row is only for reading.
+// Centering the last team scrolls far enough to show it anyway.
+static void standings_selection_will_change(MenuLayer *menu, MenuIndex *new_index,
+                                            MenuIndex old_index, void *context) {
+  if (s_standing_count > 0 && new_index->row >= s_standing_count) *new_index = old_index;
+}
+
 // Select switches to the schedule; a long press reloads the standings.
 static void standings_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
   swap_window(s_window, s_standings_window);
@@ -414,6 +421,7 @@ static void standings_window_load(Window *window) {
     .draw_row = standings_draw_row,
     .select_click = standings_select_click,
     .select_long_click = standings_select_long_click,
+    .selection_will_change = standings_selection_will_change,
   });
   style_menu(s_standings_menu);
   menu_layer_set_click_config_onto_window(s_standings_menu, window);
