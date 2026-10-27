@@ -19,7 +19,8 @@
       "chalk",
       "diorite",
       "emery",
-      "flint"
+      "flint",
+      "gabbro"
     ],
     "watchapp": {
       "watchface": false
@@ -43,7 +44,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -53,7 +55,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -63,7 +66,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -73,7 +77,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -83,7 +88,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -93,7 +99,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -103,7 +110,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -113,7 +121,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         },
         {
@@ -123,7 +132,8 @@
           "targetPlatforms": [
             "basalt",
             "chalk",
-            "emery"
+            "emery",
+            "gabbro"
           ]
         }
       ]
