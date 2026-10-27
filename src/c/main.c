@@ -1,6 +1,7 @@
 // MASL Scores - watch app
 // Shows a scrollable list of MASL games and the division standings. Select
-// switches between the two screens; a long press of Select refreshes.
+// switches between the two screens; a long press of Select refreshes. On
+// touchscreen watches, swiping scrolls and tapping acts like Select.
 
 #include <pebble.h>
 
@@ -518,6 +519,12 @@ static void init(void) {
   s_header_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   load_logos();
   set_highlight(load_highlight());
+
+#if defined(PBL_TOUCH)
+  // Let a finger scroll both menus; a tap acts like Select. Apps are opted
+  // out by default.
+  app_touch_navigation_enable(true);
+#endif
 
   s_standings_window = window_create();
   window_set_window_handlers(s_standings_window, (WindowHandlers) {

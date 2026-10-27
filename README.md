@@ -23,6 +23,8 @@ DigitalShift), parses them, and sends compact versions to the watch.
   - **Select** switches between the schedule and the standings.
   - **Long-press Select** refreshes the current screen.
   - **Back** exits the app from either screen.
+  - On touchscreen watches, **swipe** to scroll and **tap** to switch
+    screens (same as Select). Needs SDK 4.9+ and watch firmware 4.32+.
 - Auto-refresh of the schedule every 10 minutes
 - Settings page in the Pebble phone app (gear icon next to the app):
   - **Selected row color** (color watches only). The text switches between
@@ -57,7 +59,7 @@ Ideas:
 
 ## Supported platforms
 
-`basalt`, `chalk`, `diorite`, `emery`, `flint` (SDK 3)
+`basalt`, `chalk`, `diorite`, `emery`, `flint`, `gabbro` (SDK 3)
 
 ## Project layout
 
